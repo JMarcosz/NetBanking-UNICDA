@@ -275,6 +275,255 @@ router.post('/', authMiddleware, (req, res) => {
   });
 });
 
+// Lista de bancos simulados para transferencias interbancarias
+const BANCOS_DISPONIBLES = [
+  { codigo: 'BHD', nombre: 'Banco BHD León' },
+  { codigo: 'POPULAR', nombre: 'Banco Popular Dominicano' },
+  { codigo: 'RESERVAS', nombre: 'Banco de Reservas' },
+  { codigo: 'SCOTIABANK', nombre: 'Scotiabank' },
+  { codigo: 'BANRESERVAS', nombre: 'Banreservas' },
+  { codigo: 'DEMO', nombre: 'Banco Demo' }
+];
+const COMISION_INTERBANCARIA = 75; // RD$75 por transferencia interbancaria
+
+// POST /api/transferencias/interbancaria - Crear transferencia interbancaria
+router.post('/interbancaria', authMiddleware, (req, res) => {
+  const { cuentaOrigen, cuentaDestino, monto, moneda, concepto, bancoDestino, nombreDestinatario } = req.body;
+
+  // Validaciones básicas
+  const errores = {};
+  if (!cuentaOrigen) errores.cuentaOrigen = ['La cuenta origen es requerida'];
+  else if (cuentaOrigen.length < 10 || cuentaOrigen.length > 25)
+    errores.cuentaOrigen = ['La longitud debe estar entre 10 y 25 caracteres'];
+  
+  if (!cuentaDestino) errores.cuentaDestino = ['La cuenta destino es requerida'];
+  
+  if (!monto || monto <= 0) errores.monto = ['El monto debe ser mayor que 0'];
+  if (!moneda) errores.moneda = ['La moneda es requerida'];
+  else if (!['DOP', 'USD', 'EUR'].includes(moneda.toUpperCase()))
+    errores.moneda = ['La moneda debe ser DOP, USD o EUR'];
+  
+  if (!concepto) errores.concepto = ['El concepto es requerido'];
+  else if (concepto.length > 140)
+    errores.concepto = ['El concepto no puede exceder 140 caracteres'];
+
+  if (!bancoDestino) errores.bancoDestino = ['El banco destino es requerido'];
+  if (!nombreDestinatario) errores.nombreDestinatario = ['El nombre del destinatario es requerido'];
+
+  if (Object.keys(errores).length > 0) {
+    return res.status(400).json({
+      codigo: 'ERROR_VALIDACION',
+      mensaje: 'Solicitud inválida o error de validación',
+      detalles: errores,
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Verificar banco destino disponible
+  const banco = BANCOS_DISPONIBLES.find(b => 
+    b.codigo === bancoDestino.toUpperCase() || 
+    b.nombre.toLowerCase() === bancoDestino.toLowerCase()
+  );
+
+  if (!banco) {
+    return res.status(502).json({
+      codigo: 'BANCO_NO_DISPONIBLE',
+      mensaje: `El banco destino '${bancoDestino}' no está disponible o no es válido`,
+      detalles: {
+        bancosDisponibles: BANCOS_DISPONIBLES.map(b => ({ codigo: b.codigo, nombre: b.nombre }))
+      },
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Verificar cuenta origen
+  const cuentas = readData('cuentas.json');
+  const ctaOrigen = cuentas.find(c => c.numeroCuenta === cuentaOrigen);
+
+  if (!ctaOrigen) {
+    return res.status(404).json({
+      codigo: 'CUENTA_NO_ENCONTRADA',
+      mensaje: 'La cuenta origen no existe',
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Verificar que pertenece al usuario
+  if (ctaOrigen.titular.idCliente !== req.user.idCliente) {
+    return res.status(403).json({
+      codigo: 'ACCESO_DENEGADO',
+      mensaje: 'La cuenta origen no pertenece al usuario autenticado',
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Verificar cuenta activa
+  if (ctaOrigen.estado !== 'ACTIVA') {
+    return res.status(403).json({
+      codigo: 'CUENTA_INACTIVA',
+      mensaje: 'La cuenta origen está inactiva',
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Calcular monto total (monto + comisión)
+  const montoTotal = monto + COMISION_INTERBANCARIA;
+
+  // Verificar saldo suficiente (monto + comisión)
+  if (ctaOrigen.saldoDisponible < montoTotal) {
+    return res.status(403).json({
+      codigo: 'SALDO_INSUFICIENTE',
+      mensaje: 'La cuenta no tiene saldo suficiente (se incluye comisión interbancaria)',
+      detalles: {
+        saldoDisponible: ctaOrigen.saldoDisponible,
+        montoTransferencia: monto,
+        comisionInterbancaria: COMISION_INTERBANCARIA,
+        montoTotal,
+        montoFaltante: montoTotal - ctaOrigen.saldoDisponible
+      },
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Verificar límite diario (solo para DOP)
+  if (moneda.toUpperCase() === 'DOP') {
+    const transferencias = readData('transferencias.json');
+    const hoy = new Date().toISOString().slice(0, 10);
+    const montoAcumulado = transferencias
+      .filter(t => 
+        t.idCliente === req.user.idCliente && 
+        t.moneda === 'DOP' &&
+        t.estado !== 'RECHAZADA' &&
+        t.fecha.slice(0, 10) === hoy
+      )
+      .reduce((sum, t) => sum + t.monto, 0);
+
+    if (montoAcumulado + monto > LIMITE_DIARIO) {
+      return res.status(403).json({
+        codigo: 'LIMITE_DIARIO_EXCEDIDO',
+        mensaje: `Se ha excedido el límite diario de RD$${LIMITE_DIARIO.toLocaleString()} para transferencias`,
+        detalles: {
+          limiteDiario: LIMITE_DIARIO,
+          montoAcumulado,
+          montoSolicitado: monto
+        },
+        timestamp: new Date().toISOString(),
+        path: req.originalUrl,
+        requestId: req.requestId
+      });
+    }
+  }
+
+  // Detectar operación sospechosa
+  let estado = 'COMPLETADA';
+  let mensaje = 'Transferencia interbancaria procesada correctamente';
+
+  if (monto >= MONTO_SOSPECHOSO) {
+    estado = 'EN_REVISION';
+    mensaje = 'La transferencia interbancaria ha sido marcada para revisión por sospecha';
+
+    const transferencias = readData('transferencias.json');
+    const nuevaTransferencia = {
+      idTransaccion: generarIdTransaccion(),
+      idCliente: req.user.idCliente,
+      tipo: 'INTERBANCARIA',
+      estado,
+      fecha: new Date().toISOString(),
+      monto,
+      comision: COMISION_INTERBANCARIA,
+      montoTotal,
+      moneda: moneda.toUpperCase(),
+      concepto,
+      cuentaOrigen,
+      cuentaDestino,
+      bancoDestino: banco.nombre,
+      codigoBanco: banco.codigo,
+      nombreDestinatario,
+      codigoAutorizacion: generarCodigoAutorizacion(),
+      referenciaExterna: `REF-${banco.codigo}-${Date.now()}`,
+      mensaje
+    };
+    transferencias.push(nuevaTransferencia);
+    writeData('transferencias.json', transferencias);
+
+    registrarAuditoria(req.user.username, 'TRANSFERENCIA',
+      `Transferencia interbancaria sospechosa a ${banco.nombre} por RD$${monto.toLocaleString()}`);
+
+    return res.status(422).json({
+      codigo: 'OPERACION_SOSPECHOSA',
+      mensaje,
+      timestamp: new Date().toISOString(),
+      path: req.originalUrl,
+      requestId: req.requestId
+    });
+  }
+
+  // Crear transferencia interbancaria
+  const transferencias = readData('transferencias.json');
+  const nuevaTransferencia = {
+    idTransaccion: generarIdTransaccion(),
+    idCliente: req.user.idCliente,
+    tipo: 'INTERBANCARIA',
+    estado,
+    fecha: new Date().toISOString(),
+    monto,
+    comision: COMISION_INTERBANCARIA,
+    montoTotal,
+    moneda: moneda.toUpperCase(),
+    concepto,
+    cuentaOrigen,
+    cuentaDestino,
+    bancoDestino: banco.nombre,
+    codigoBanco: banco.codigo,
+    nombreDestinatario,
+    codigoAutorizacion: generarCodigoAutorizacion(),
+    referenciaExterna: `REF-${banco.codigo}-${Date.now()}`,
+    mensaje
+  };
+
+  transferencias.push(nuevaTransferencia);
+  writeData('transferencias.json', transferencias);
+
+  // Debitar monto + comisión de la cuenta origen
+  const indexOrigen = cuentas.findIndex(c => c.numeroCuenta === cuentaOrigen);
+  cuentas[indexOrigen].saldoDisponible -= montoTotal;
+  cuentas[indexOrigen].saldoContable -= montoTotal;
+  writeData('cuentas.json', cuentas);
+
+  // Registrar auditoría
+  registrarAuditoria(req.user.username, 'TRANSFERENCIA',
+    `Transferencia interbancaria a ${banco.nombre} por RD$${monto.toLocaleString()} + comisión RD$${COMISION_INTERBANCARIA}`);
+
+  res.status(201).json({
+    idTransaccion: nuevaTransferencia.idTransaccion,
+    tipo: 'INTERBANCARIA',
+    estado: nuevaTransferencia.estado,
+    fecha: nuevaTransferencia.fecha,
+    monto: nuevaTransferencia.monto,
+    comision: nuevaTransferencia.comision,
+    montoTotal: nuevaTransferencia.montoTotal,
+    moneda: nuevaTransferencia.moneda,
+    concepto: nuevaTransferencia.concepto,
+    cuentaOrigen: nuevaTransferencia.cuentaOrigen,
+    cuentaDestino: nuevaTransferencia.cuentaDestino,
+    bancoDestino: nuevaTransferencia.bancoDestino,
+    nombreDestinatario: nuevaTransferencia.nombreDestinatario,
+    referenciaExterna: nuevaTransferencia.referenciaExterna
+  });
+});
+
 // GET /api/transferencias/:idTransaccion - Detalle de transferencia
 router.get('/:idTransaccion', authMiddleware, (req, res) => {
   const transferencias = readData('transferencias.json');

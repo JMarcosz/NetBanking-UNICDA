@@ -280,6 +280,68 @@ Crea una transferencia bancaria.
 
 ---
 
+### POST `/api/transferencias/interbancaria`
+Crea una transferencia interbancaria (a otro banco).
+
+**Seguridad:** Bearer Token
+
+**Reglas de negocio:**
+- Mismas reglas que transferencias locales
+- Requiere `bancoDestino` y `nombreDestinatario`
+- Se cobra una **comisión de RD$75** adicional al monto
+- El banco destino debe estar en la lista de bancos disponibles
+
+**Bancos disponibles:**
+
+| Código | Nombre |
+|--------|--------|
+| BHD | Banco BHD León |
+| POPULAR | Banco Popular Dominicano |
+| RESERVAS | Banco de Reservas |
+| SCOTIABANK | Scotiabank |
+| BANRESERVAS | Banreservas |
+| DEMO | Banco Demo |
+
+**Request Body:**
+```json
+{
+  "cuentaOrigen": "1001-2345-6789-0001",
+  "cuentaDestino": "8800-1234-5678-0001",
+  "monto": 5000,
+  "moneda": "DOP",
+  "concepto": "Pago a proveedor",
+  "bancoDestino": "BHD",
+  "nombreDestinatario": "Pedro García"
+}
+```
+
+**Response 201:**
+```json
+{
+  "idTransaccion": "TRX-20260319-0005",
+  "tipo": "INTERBANCARIA",
+  "estado": "COMPLETADA",
+  "fecha": "2026-03-19T18:00:00Z",
+  "monto": 5000,
+  "comision": 75,
+  "montoTotal": 5075,
+  "moneda": "DOP",
+  "concepto": "Pago a proveedor",
+  "cuentaOrigen": "1001-2345-6789-0001",
+  "cuentaDestino": "8800-1234-5678-0001",
+  "bancoDestino": "Banco BHD León",
+  "nombreDestinatario": "Pedro García",
+  "referenciaExterna": "REF-BHD-1742421600000"
+}
+```
+
+**Response 400:** Error de validación  
+**Response 403:** Saldo insuficiente / Límite diario excedido / Cuenta inactiva  
+**Response 422:** Operación sospechosa (monto ≥ RD$50,000)  
+**Response 502:** Banco destino no disponible
+
+---
+
 ### GET `/api/transferencias/{idTransaccion}`
 Obtiene el detalle de una transferencia.
 
@@ -460,6 +522,7 @@ Consulta eventos de auditoría del sistema.
 | BENEFICIARIO_NO_ENCONTRADO| 404  | El beneficiario no existe                          |
 | TRANSFERENCIA_NO_ENCONTRADA| 404 | La transferencia no existe                         |
 | OPERACION_SOSPECHOSA      | 422  | Transferencia marcada para revisión                |
+| BANCO_NO_DISPONIBLE       | 502  | Banco destino no disponible para interbancaria     |
 | ERROR_INTERNO             | 500  | Error interno del servidor                         |
 
 ---
@@ -490,10 +553,18 @@ curl http://localhost:3000/api/clientes/me \
   -H "Authorization: Bearer <accessToken>"
 ```
 
-### 3. Hacer una Transferencia
+### 3. Hacer una Transferencia Local
 ```bash
 curl -X POST http://localhost:3000/api/transferencias \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <accessToken>" \
   -d '{"cuentaOrigen":"1001-2345-6789-0001","cuentaDestino":"1001-9876-5432-1000","monto":5000,"moneda":"DOP","concepto":"Pago factura"}'
+```
+
+### 4. Hacer una Transferencia Interbancaria
+```bash
+curl -X POST http://localhost:3000/api/transferencias/interbancaria \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <accessToken>" \
+  -d '{"cuentaOrigen":"1001-2345-6789-0001","cuentaDestino":"8800-1234-5678-0001","monto":5000,"moneda":"DOP","concepto":"Pago proveedor","bancoDestino":"BHD","nombreDestinatario":"Pedro García"}'
 ```

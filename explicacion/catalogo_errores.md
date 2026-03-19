@@ -35,7 +35,7 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 | `TOKEN_EXPIRADO` | El token ha expirado | Access token superó 15 min o refresh token superó 7 días | Todos los endpoints protegidos / `POST /api/auth/refresh` |
 | `NO_AUTORIZADO` | Token de autorización requerido | Falta el header `Authorization: Bearer <token>` | Todos los endpoints protegidos |
 
-### Ejemplo
+### Ejemplo 1 — Credenciales Inválidas
 ```json
 {
   "codigo": "CREDENCIALES_INVALIDAS",
@@ -46,6 +46,39 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 }
 ```
 
+### Ejemplo 2 — Token Inválido
+```json
+{
+  "codigo": "TOKEN_INVALIDO",
+  "mensaje": "El token proporcionado es inválido",
+  "timestamp": "2026-02-17T16:05:00Z",
+  "path": "/api/cuentas",
+  "requestId": "req-000010"
+}
+```
+
+### Ejemplo 3 — Token Expirado
+```json
+{
+  "codigo": "TOKEN_EXPIRADO",
+  "mensaje": "El refresh token ha expirado o fue invalidado",
+  "timestamp": "2026-02-17T16:10:00Z",
+  "path": "/api/auth/refresh",
+  "requestId": "req-000015"
+}
+```
+
+### Ejemplo 4 — No Autorizado
+```json
+{
+  "codigo": "NO_AUTORIZADO",
+  "mensaje": "Token de autorización requerido",
+  "timestamp": "2026-02-17T16:12:00Z",
+  "path": "/api/transferencias",
+  "requestId": "req-000020"
+}
+```
+
 ---
 
 ## Errores de Autorización (403)
@@ -53,11 +86,22 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 | Código | Mensaje | Causa | Endpoint |
 |--------|---------|-------|----------|
 | `ACCESO_DENEGADO` | No tiene permisos suficientes para acceder a este recurso | El rol del usuario no tiene permiso para el endpoint | Endpoints con restricción de rol |
-| `SALDO_INSUFICIENTE` | La cuenta no tiene saldo suficiente para realizar la operación | El saldo disponible es menor al monto de la transferencia | `POST /api/transferencias` |
-| `LIMITE_DIARIO_EXCEDIDO` | Se ha excedido el límite diario de RD$200,000 para transferencias | Las transferencias del día superan el límite | `POST /api/transferencias` |
-| `CUENTA_INACTIVA` | La cuenta origen o destino está inactiva | Una o ambas cuentas tienen estado INACTIVA | `POST /api/transferencias` |
+| `SALDO_INSUFICIENTE` | La cuenta no tiene saldo suficiente para realizar la operación | El saldo disponible es menor al monto de la transferencia | `POST /api/transferencias`, `POST /api/transferencias/interbancaria` |
+| `LIMITE_DIARIO_EXCEDIDO` | Se ha excedido el límite diario de RD$200,000 para transferencias | Las transferencias del día superan el límite | `POST /api/transferencias`, `POST /api/transferencias/interbancaria` |
+| `CUENTA_INACTIVA` | La cuenta origen o destino está inactiva | Una o ambas cuentas tienen estado INACTIVA | `POST /api/transferencias`, `POST /api/transferencias/interbancaria` |
 
-### Ejemplo — Saldo Insuficiente
+### Ejemplo 5 — Acceso Denegado por Rol
+```json
+{
+  "codigo": "ACCESO_DENEGADO",
+  "mensaje": "No tiene permisos suficientes para acceder a este recurso",
+  "timestamp": "2026-02-17T16:15:00Z",
+  "path": "/api/admin/transferencias/sospechosas",
+  "requestId": "req-000030"
+}
+```
+
+### Ejemplo 6 — Saldo Insuficiente
 ```json
 {
   "codigo": "SALDO_INSUFICIENTE",
@@ -73,7 +117,7 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 }
 ```
 
-### Ejemplo — Límite Diario Excedido
+### Ejemplo 7 — Límite Diario Excedido
 ```json
 {
   "codigo": "LIMITE_DIARIO_EXCEDIDO",
@@ -89,6 +133,17 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 }
 ```
 
+### Ejemplo 8 — Cuenta Inactiva
+```json
+{
+  "codigo": "CUENTA_INACTIVA",
+  "mensaje": "La cuenta origen o destino está inactiva",
+  "timestamp": "2026-02-17T16:37:00Z",
+  "path": "/api/transferencias",
+  "requestId": "req-000125"
+}
+```
+
 ---
 
 ## Errores de Validación (400)
@@ -98,11 +153,11 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 | `ERROR_VALIDACION` | Solicitud inválida o error de validación | Campos requeridos faltantes o con formato incorrecto | Todos los endpoints con body |
 | `ESTADO_INVALIDO` | Solo se pueden revisar transferencias en estado EN_REVISION | Intentar revisar una transferencia que no está en revisión | `PATCH /api/admin/.../revision` |
 
-### Ejemplo — Validación de Campos
+### Ejemplo 9 — Validación de Campos
 ```json
 {
   "codigo": "ERROR_VALIDACION",
-  "mensaje": "Error de validación en datos de entrada",
+  "mensaje": "Solicitud inválida o error de validación",
   "detalles": {
     "monto": ["El monto debe ser mayor que 0"],
     "numeroCuenta": ["La longitud debe estar entre 10 y 25 caracteres"],
@@ -126,7 +181,29 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 | `CLIENTE_NO_ENCONTRADO` | No se encontró el perfil del cliente | El cliente asociado al token no existe en la BD | `GET /api/clientes/me` |
 | `RUTA_NO_ENCONTRADA` | La ruta {método} {url} no existe | Endpoint no existe en la API | Cualquier ruta no definida |
 
-### Ejemplo
+### Ejemplo 10 — Cuenta No Encontrada
+```json
+{
+  "codigo": "CUENTA_NO_ENCONTRADA",
+  "mensaje": "La cuenta solicitada no existe",
+  "timestamp": "2026-02-17T16:39:00Z",
+  "path": "/api/cuentas/9999-9999-9999-9999",
+  "requestId": "req-000006"
+}
+```
+
+### Ejemplo 11 — Beneficiario No Encontrado
+```json
+{
+  "codigo": "BENEFICIARIO_NO_ENCONTRADO",
+  "mensaje": "No se encontró el beneficiario especificado",
+  "timestamp": "2026-02-17T16:39:30Z",
+  "path": "/api/beneficiarios/BEN-999",
+  "requestId": "req-000008"
+}
+```
+
+### Ejemplo 12 — Transferencia No Encontrada
 ```json
 {
   "codigo": "TRANSFERENCIA_NO_ENCONTRADA",
@@ -145,7 +222,7 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 |--------|---------|-------|----------|
 | `ERROR_VALIDACION` | El beneficiario ya está registrado | Se intentó crear un beneficiario con un numeroCuenta ya registrado por el mismo cliente | `POST /api/beneficiarios` |
 
-### Ejemplo
+### Ejemplo 13 — Beneficiario Duplicado
 ```json
 {
   "codigo": "ERROR_VALIDACION",
@@ -162,9 +239,9 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 
 | Código | Mensaje | Causa | Endpoint |
 |--------|---------|-------|----------|
-| `OPERACION_SOSPECHOSA` | La transferencia ha sido marcada para revisión por sospecha | Monto de transferencia ≥ RD$50,000 | `POST /api/transferencias` |
+| `OPERACION_SOSPECHOSA` | La transferencia ha sido marcada para revisión por sospecha | Monto de transferencia ≥ RD$50,000 | `POST /api/transferencias`, `POST /api/transferencias/interbancaria` |
 
-### Ejemplo
+### Ejemplo 14 — Operación Sospechosa
 ```json
 {
   "codigo": "OPERACION_SOSPECHOSA",
@@ -179,13 +256,42 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 
 ---
 
+## Errores de Servicio No Disponible (502)
+
+| Código | Mensaje | Causa | Endpoint |
+|--------|---------|-------|----------|
+| `BANCO_NO_DISPONIBLE` | El banco destino no está disponible o no es válido | Se intentó hacer una transferencia interbancaria a un banco no registrado | `POST /api/transferencias/interbancaria` |
+
+### Ejemplo 15 — Banco No Disponible
+```json
+{
+  "codigo": "BANCO_NO_DISPONIBLE",
+  "mensaje": "El banco destino 'Banco Ficticio' no está disponible o no es válido",
+  "detalles": {
+    "bancosDisponibles": [
+      { "codigo": "BHD", "nombre": "Banco BHD León" },
+      { "codigo": "POPULAR", "nombre": "Banco Popular Dominicano" },
+      { "codigo": "RESERVAS", "nombre": "Banco de Reservas" },
+      { "codigo": "SCOTIABANK", "nombre": "Scotiabank" },
+      { "codigo": "BANRESERVAS", "nombre": "Banreservas" },
+      { "codigo": "DEMO", "nombre": "Banco Demo" }
+    ]
+  },
+  "timestamp": "2026-03-19T18:30:00Z",
+  "path": "/api/transferencias/interbancaria",
+  "requestId": "req-000500"
+}
+```
+
+---
+
 ## Errores Internos del Servidor (500)
 
 | Código | Mensaje | Causa | Endpoint |
 |--------|---------|-------|----------|
 | `ERROR_INTERNO` | Ha ocurrido un error interno del servidor | Error no controlado en la lógica del servidor | Cualquier endpoint |
 
-### Ejemplo
+### Ejemplo 16 — Error Interno
 ```json
 {
   "codigo": "ERROR_INTERNO",
@@ -219,4 +325,5 @@ Todas las respuestas de error siguen el schema `ErrorResponse`:
 | 404 | `RUTA_NO_ENCONTRADA` | Endpoint no existe |
 | 409 | `ERROR_VALIDACION` | Recurso duplicado |
 | 422 | `OPERACION_SOSPECHOSA` | Requiere revisión manual |
+| 502 | `BANCO_NO_DISPONIBLE` | Banco destino no disponible |
 | 500 | `ERROR_INTERNO` | Error del servidor |
