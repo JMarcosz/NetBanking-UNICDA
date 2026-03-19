@@ -146,6 +146,58 @@ Consulta el detalle de una cuenta.
 
 ---
 
+### GET `/api/cuentas/{numeroCuenta}/transferencias`
+Consulta el historial de transferencias de una cuenta específica.
+
+**Seguridad:** Bearer Token
+
+**Path Parameters:**
+
+| Parámetro      | Tipo   | Descripción                       |
+|----------------|--------|-----------------------------------|
+| numeroCuenta   | string | Número de cuenta (10-25 chars)    |
+
+**Query Parameters:**
+
+| Parámetro  | Tipo    | Requerido | Descripción                              |
+|------------|---------|-----------|------------------------------------------|
+| fechaDesde | date    | No        | Fecha inicial (YYYY-MM-DD)               |
+| fechaHasta | date    | No        | Fecha final (YYYY-MM-DD)                 |
+| estado     | string  | No        | COMPLETADA, EN_REVISION, RECHAZADA       |
+| tipo       | string  | No        | LOCAL o INTERBANCARIA                    |
+| pagina     | integer | No        | Número de página (default: 1)            |
+| tamanio    | integer | No        | Tamaño de página (1-100, default: 10)    |
+
+**Response 200:**
+```json
+{
+  "numeroCuenta": "1001-2345-6789-0001",
+  "data": [
+    {
+      "idTransaccion": "TRX-20260217-0001",
+      "estado": "COMPLETADA",
+      "fecha": "2026-02-17T16:30:00Z",
+      "monto": 5000,
+      "moneda": "DOP",
+      "concepto": "Pago factura",
+      "cuentaOrigen": "1001-2345-6789-0001",
+      "cuentaDestino": "1001-9876-5432-1000"
+    }
+  ],
+  "paginacion": {
+    "pagina": 1,
+    "tamanio": 10,
+    "totalRegistros": 5,
+    "totalPaginas": 1
+  }
+}
+```
+
+**Response 403:** La cuenta no pertenece al usuario autenticado  
+**Response 404:** Cuenta no encontrada
+
+---
+
 ## 4. Beneficiarios
 
 ### GET `/api/beneficiarios`

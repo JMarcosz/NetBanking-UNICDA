@@ -33,7 +33,7 @@ proyecto segundo parcial/
 │   └── routes/
 │       ├── auth.routes.js            # Login, refresh, logout
 │       ├── clientes.routes.js        # User profile
-│       ├── cuentas.routes.js         # Accounts list/detail
+│       ├── cuentas.routes.js         # Accounts list/detail/history
 │       ├── beneficiarios.routes.js   # CRUD beneficiaries
 │       ├── transferencias.routes.js  # Transfers with business rules
 │       ├── admin.routes.js           # Suspicious transfer review

@@ -47,7 +47,17 @@ sequenceDiagram
         ST-->>CL: 201 Transferencia COMPLETADA
     end
 
-    Note over CL,SI: 3. Transferencia Interbancaria (otro banco)
+    Note over CL,SI: 3. Consultar Histórico por Cuenta
+
+    CL->>ST: Consultar histórico de cuenta<br/>GET /api/cuentas/{numeroCuenta}/transferencias
+    ST->>AUTH: Validar token Bearer
+    AUTH-->>ST: Token válido, usuario autenticado
+    ST->>CO: Verificar titularidad de cuenta
+    CO-->>ST: Cuenta pertenece al usuario
+    ST->>ST: Filtrar transferencias por cuenta<br/>(origen o destino)
+    ST-->>CL: 200 OK Historial paginado
+
+    Note over CL,SI: 4. Transferencia Interbancaria (otro banco)
 
     CL->>ST: Solicitar transferencia interbancaria<br/>POST /api/transferencias/interbancaria
     ST->>AUTH: Validar token Bearer
@@ -69,7 +79,7 @@ sequenceDiagram
         ST-->>CL: 201 Transferencia interbancaria COMPLETADA
     end
 
-    Note over CL,SI: 4. Renovar Token / Cerrar Sesión
+    Note over CL,SI: 5. Renovar Token / Cerrar Sesión
 
     CL->>AUTH: POST /api/auth/refresh
     AUTH-->>CL: Nuevo accessToken
@@ -121,6 +131,7 @@ flowchart TD
 | `/api/clientes/me` | GET | ✅ | ✅ | ✅ | — |
 | `/api/cuentas` | GET | ✅ | ✅ | ✅ | — |
 | `/api/cuentas/{id}` | GET | ✅ | ✅ | ✅ | — |
+| `/api/cuentas/{id}/transferencias` | GET | ✅ | ✅ | ✅ | — |
 | `/api/beneficiarios` | GET | ✅ | ✅ | ✅ | — |
 | `/api/beneficiarios` | POST | ✅ | ✅ | ✅ | — |
 | `/api/beneficiarios/{id}` | PUT | ✅ | ✅ | ✅ | — |
