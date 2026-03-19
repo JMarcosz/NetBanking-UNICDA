@@ -1,0 +1,38 @@
+[
+  {
+    "idCliente": "CLI-1001",
+    "nombreCompleto": "Juan Pérez",
+    "documentoIdentidad": "00112345678",
+    "correo": "juan.perez@correo.com",
+    "telefono": "8095551234",
+    "estado": "ACTIVO",
+    "rol": "CLIENTE"
+  },
+  {
+    "idCliente": "CLI-1002",
+    "nombreCompleto": "Ana García",
+    "documentoIdentidad": "00298765432",
+    "correo": "ana.garcia@correo.com",
+    "telefono": "8095555678",
+    "estado": "ACTIVO",
+    "rol": "CLIENTE"
+  },
+  {
+    "idCliente": "CLI-1003",
+    "nombreCompleto": "Carlos Admin",
+    "documentoIdentidad": "00311111111",
+    "correo": "carlos.admin@banco.com",
+    "telefono": "8095559999",
+    "estado": "ACTIVO",
+    "rol": "ADMIN_BANCO"
+  },
+  {
+    "idCliente": "CLI-1004",
+    "nombreCompleto": "Laura Auditora",
+    "documentoIdentidad": "00422222222",
+    "correo": "laura.auditora@banco.com",
+    "telefono": "8095558888",
+    "estado": "ACTIVO",
+    "rol": "AUDITOR"
+  }
+]

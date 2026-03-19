@@ -1,0 +1,22 @@
+{
+  "name": "proyecto-segundo-parcial",
+  "version": "1.0.0",
+  "description": "API Bancaria de Transferencias - Proyecto Académico",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "jest --verbose --forceExit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1",
+    "swagger-ui-dist": "^5.32.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3"
+  }
+}

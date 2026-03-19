@@ -1,0 +1,51 @@
+[
+  {
+    "idEvento": "EVT-0001",
+    "usuario": "cliente01",
+    "tipoEvento": "LOGIN",
+    "descripcion": "Inicio de sesión exitoso",
+    "fecha": "2026-02-17T15:00:00Z"
+  },
+  {
+    "idEvento": "EVT-0002",
+    "usuario": "cliente01",
+    "tipoEvento": "TRANSFERENCIA",
+    "descripcion": "Transferencia realizada por RD$5,000.00",
+    "fecha": "2026-02-17T16:30:00Z"
+  },
+  {
+    "idEvento": "EVT-0003",
+    "usuario": "cliente01",
+    "tipoEvento": "TRANSFERENCIA",
+    "descripcion": "Transferencia marcada como sospechosa por RD$15,000.00",
+    "fecha": "2026-02-16T14:00:00Z"
+  },
+  {
+    "idEvento": "EVT-0004",
+    "usuario": "admin01",
+    "tipoEvento": "LOGIN",
+    "descripcion": "Inicio de sesión de administrador",
+    "fecha": "2026-02-17T08:00:00Z"
+  },
+  {
+    "idEvento": "EVT-0005",
+    "usuario": "cliente02",
+    "tipoEvento": "LOGIN",
+    "descripcion": "Inicio de sesión exitoso",
+    "fecha": "2026-02-15T09:30:00Z"
+  },
+  {
+    "idEvento": "EVT-0006",
+    "usuario": "cliente01",
+    "tipoEvento": "ERROR",
+    "descripcion": "Intento de transferencia rechazada por límite diario excedido",
+    "fecha": "2026-02-14T09:00:00Z"
+  },
+  {
+    "idEvento": "EVT-0007",
+    "usuario": "cliente01",
+    "tipoEvento": "LOGIN",
+    "descripcion": "Inicio de sesión exitoso",
+    "fecha": "2026-03-19T22:10:28.520Z"
+  }
+]

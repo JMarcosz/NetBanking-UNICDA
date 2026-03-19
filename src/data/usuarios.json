@@ -1,0 +1,26 @@
+[
+  {
+    "username": "cliente01",
+    "password": "ClaveSegura123!",
+    "idCliente": "CLI-1001",
+    "rol": "CLIENTE"
+  },
+  {
+    "username": "cliente02",
+    "password": "ClaveSegura456!",
+    "idCliente": "CLI-1002",
+    "rol": "CLIENTE"
+  },
+  {
+    "username": "admin01",
+    "password": "AdminSegura789!",
+    "idCliente": "CLI-1003",
+    "rol": "ADMIN_BANCO"
+  },
+  {
+    "username": "auditor01",
+    "password": "AuditorSegura321!",
+    "idCliente": "CLI-1004",
+    "rol": "AUDITOR"
+  }
+]

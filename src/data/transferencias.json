@@ -1,0 +1,58 @@
+[
+  {
+    "idTransaccion": "TRX-20260217-0001",
+    "idCliente": "CLI-1001",
+    "estado": "COMPLETADA",
+    "fecha": "2026-02-17T16:30:00Z",
+    "monto": 5000,
+    "moneda": "DOP",
+    "concepto": "Pago factura",
+    "cuentaOrigen": "1001-2345-6789-0001",
+    "cuentaDestino": "1001-9876-5432-1000",
+    "idBeneficiario": "BEN-001",
+    "codigoAutorizacion": "AUT-998877",
+    "mensaje": "Transferencia procesada correctamente"
+  },
+  {
+    "idTransaccion": "TRX-20260216-0002",
+    "idCliente": "CLI-1001",
+    "estado": "EN_REVISION",
+    "fecha": "2026-02-16T14:00:00Z",
+    "monto": 15000,
+    "moneda": "DOP",
+    "concepto": "Pago servicios",
+    "cuentaOrigen": "1001-2345-6789-0001",
+    "cuentaDestino": "1001-9876-5432-1001",
+    "idBeneficiario": "BEN-002",
+    "codigoAutorizacion": "AUT-998878",
+    "mensaje": "Transferencia en revisión por sospecha"
+  },
+  {
+    "idTransaccion": "TRX-20260215-0003",
+    "idCliente": "CLI-1002",
+    "estado": "COMPLETADA",
+    "fecha": "2026-02-15T10:00:00Z",
+    "monto": 2500,
+    "moneda": "DOP",
+    "concepto": "Transferencia personal",
+    "cuentaOrigen": "1001-9876-5432-1000",
+    "cuentaDestino": "1001-2345-6789-0001",
+    "idBeneficiario": null,
+    "codigoAutorizacion": "AUT-998879",
+    "mensaje": "Transferencia procesada correctamente"
+  },
+  {
+    "idTransaccion": "TRX-20260214-0004",
+    "idCliente": "CLI-1001",
+    "estado": "RECHAZADA",
+    "fecha": "2026-02-14T09:00:00Z",
+    "monto": 300000,
+    "moneda": "DOP",
+    "concepto": "Intento de transferencia grande",
+    "cuentaOrigen": "1001-2345-6789-0001",
+    "cuentaDestino": "1001-9876-5432-1000",
+    "idBeneficiario": "BEN-001",
+    "codigoAutorizacion": "AUT-998880",
+    "mensaje": "Transferencia rechazada por exceder límite diario"
+  }
+]

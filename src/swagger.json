@@ -1,0 +1,750 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "API Bancaria de Transferencias",
+    "description": "API REST para operaciones bancarias de transferencias, diseñada para fines académicos de Ingeniería de Servicios Web.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    { "url": "http://localhost:3000", "description": "Servidor local de desarrollo" }
+  ],
+  "security": [
+    { "bearerAuth": [] }
+  ],
+  "paths": {
+    "/api/auth/token": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Autentica usuario y genera access token y refresh token",
+        "description": "Permite al usuario autenticarse con sus credenciales y obtener un access token válido por 15 minutos y un refresh token válido por 7 días.",
+        "operationId": "autenticarUsuario",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/auth_token_body" },
+              "example": {
+                "username": "cliente01",
+                "password": "ClaveSegura123!",
+                "grantType": "password"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tokens generados correctamente",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" },
+                "example": {
+                  "accessToken": "access-xxxxx-1001",
+                  "tokenType": "Bearer",
+                  "expiresIn": 900,
+                  "refreshToken": "refresh-xxxxx-1001",
+                  "refreshExpiresIn": 604800,
+                  "scope": "transferencias cuentas perfil"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Credenciales inválidas",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" },
+                "example": {
+                  "codigo": "CREDENCIALES_INVALIDAS",
+                  "mensaje": "Usuario o contraseña incorrectos",
+                  "timestamp": "2026-02-17T16:00:00Z",
+                  "path": "/api/auth/token",
+                  "requestId": "req-000001"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Renueva el access token usando refresh token",
+        "description": "Permite obtener un nuevo access token válido usando un refresh token válido.",
+        "operationId": "renovarAccessToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" },
+              "example": { "refreshToken": "refresh-xxxxx-1001" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Nuevo access token generado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Refresh token expirado o inválido",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        },
+        "security": []
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Autenticación"],
+        "summary": "Invalida refresh token y cierra sesión",
+        "description": "Cierra la sesión del usuario invalidando el refresh token proporcionado.",
+        "operationId": "cerrarSesion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" },
+              "example": { "refreshToken": "refresh-xxxxx-1001" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Sesión cerrada y refresh token invalidado" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/clientes/me": {
+      "get": {
+        "tags": ["Clientes"],
+        "summary": "Obtiene el perfil del usuario autenticado",
+        "description": "Retorna la información del perfil del cliente autenticado. Requiere rol CLIENTE, ADMIN_BANCO o AUDITOR.",
+        "operationId": "obtenerPerfilUsuario",
+        "responses": {
+          "200": {
+            "description": "Perfil del usuario autenticado",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Cliente" },
+                "example": {
+                  "idCliente": "CLI-1001",
+                  "nombreCompleto": "Juan Pérez",
+                  "documentoIdentidad": "00112345678",
+                  "correo": "juan.perez@correo.com",
+                  "telefono": "8095551234",
+                  "estado": "ACTIVO",
+                  "rol": "CLIENTE"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "403": {
+            "description": "Acceso denegado por rol insuficiente",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/cuentas": {
+      "get": {
+        "tags": ["Cuentas"],
+        "summary": "Lista las cuentas del cliente autenticado",
+        "description": "Retorna un arreglo con las cuentas asociadas al cliente autenticado. Se pueden filtrar por estado y moneda.",
+        "operationId": "listarCuentasCliente",
+        "parameters": [
+          { "name": "estado", "in": "query", "description": "Estado de la cuenta (ej. ACTIVA, INACTIVA)", "required": false, "schema": { "type": "string", "example": "ACTIVA" } },
+          { "name": "moneda", "in": "query", "description": "Moneda de la cuenta", "required": false, "schema": { "type": "string", "example": "DOP", "enum": ["DOP", "USD", "EUR"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de cuentas del cliente",
+            "content": {
+              "application/json": {
+                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Cuenta" } }
+              }
+            }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/cuentas/{numeroCuenta}": {
+      "get": {
+        "tags": ["Cuentas"],
+        "summary": "Consulta detalle y saldo de una cuenta específica",
+        "description": "Retorna el detalle completo y saldo de la cuenta indicada por número.",
+        "operationId": "obtenerDetalleCuenta",
+        "parameters": [
+          { "name": "numeroCuenta", "in": "path", "required": true, "schema": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-2345-6789-0001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle de la cuenta",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Cuenta" } } }
+          },
+          "404": {
+            "description": "Cuenta no encontrada",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/beneficiarios": {
+      "get": {
+        "tags": ["Beneficiarios"],
+        "summary": "Lista beneficiarios asociados al cliente",
+        "description": "Retorna un arreglo con los beneficiarios registrados por el cliente autenticado.",
+        "operationId": "listarBeneficiarios",
+        "responses": {
+          "200": {
+            "description": "Lista de beneficiarios",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Beneficiario" } } } }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "post": {
+        "tags": ["Beneficiarios"],
+        "summary": "Registra un nuevo beneficiario",
+        "description": "Permite al cliente registrar un nuevo beneficiario para transferencias.",
+        "operationId": "crearBeneficiario",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BeneficiarioRequest" },
+              "example": {
+                "alias": "Madre",
+                "nombreBeneficiario": "María Pérez",
+                "numeroCuenta": "1001-8888-7777-0002",
+                "banco": "Banco Demo",
+                "documentoIdentidad": "00198765432"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Beneficiario creado exitosamente",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Beneficiario" } } }
+          },
+          "400": {
+            "description": "Error de validación en datos de entrada",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+          },
+          "409": {
+            "description": "Beneficiario ya existe",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/beneficiarios/{idBeneficiario}": {
+      "put": {
+        "tags": ["Beneficiarios"],
+        "summary": "Actualiza alias o datos permitidos del beneficiario",
+        "description": "Permite modificar el alias o datos permitidos de un beneficiario existente.",
+        "operationId": "actualizarBeneficiario",
+        "parameters": [
+          { "name": "idBeneficiario", "in": "path", "required": true, "schema": { "type": "string", "example": "BEN-001" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/beneficiarios_idBeneficiario_body" },
+              "example": { "alias": "Madre Actualizada" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Beneficiario actualizado correctamente",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Beneficiario" } } }
+          },
+          "400": {
+            "description": "Error de validación en datos de entrada",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+          },
+          "404": {
+            "description": "Beneficiario no encontrado",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "delete": {
+        "tags": ["Beneficiarios"],
+        "summary": "Elimina un beneficiario",
+        "description": "Permite eliminar un beneficiario registrado.",
+        "operationId": "eliminarBeneficiario",
+        "parameters": [
+          { "name": "idBeneficiario", "in": "path", "required": true, "schema": { "type": "string", "example": "BEN-001" } }
+        ],
+        "responses": {
+          "204": { "description": "Beneficiario eliminado correctamente" },
+          "404": {
+            "description": "Beneficiario no encontrado",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/transferencias": {
+      "get": {
+        "tags": ["Transferencias"],
+        "summary": "Consulta histórico de transferencias del cliente",
+        "description": "Permite consultar el historial de transferencias realizadas por el cliente, con filtros y paginación.",
+        "operationId": "listarTransferencias",
+        "parameters": [
+          { "name": "fechaDesde", "in": "query", "required": false, "schema": { "type": "string", "format": "date", "example": "2026-01-01" } },
+          { "name": "fechaHasta", "in": "query", "required": false, "schema": { "type": "string", "format": "date", "example": "2026-02-17" } },
+          { "name": "estado", "in": "query", "required": false, "schema": { "type": "string", "example": "COMPLETADA" } },
+          { "name": "pagina", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "tamanio", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de transferencias",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransferenciaPaginada" } } }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "post": {
+        "tags": ["Transferencias"],
+        "summary": "Crea una transferencia bancaria entre cuentas",
+        "description": "Permite crear una transferencia entre cuentas activas, validando saldo, límite diario y detectando operaciones sospechosas.",
+        "operationId": "crearTransferencia",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TransferenciaRequest" },
+              "example": {
+                "cuentaOrigen": "1001-2345-6789-0001",
+                "cuentaDestino": "1001-9876-5432-1000",
+                "monto": 5000,
+                "moneda": "DOP",
+                "concepto": "Pago factura",
+                "idBeneficiario": "BEN-001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Transferencia creada exitosamente",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransferenciaResponse" } } }
+          },
+          "400": {
+            "description": "Solicitud inválida o error de validación",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ValidationErrorResponse" } } }
+          },
+          "403": {
+            "description": "Acceso denegado o validación de negocio fallida",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "422": {
+            "description": "Operación no procesable (operación sospechosa)",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "500": {
+            "description": "Error interno del servidor",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/transferencias/{idTransaccion}": {
+      "get": {
+        "tags": ["Transferencias"],
+        "summary": "Obtiene el detalle de una transferencia",
+        "description": "Retorna el detalle completo de una transferencia específica.",
+        "operationId": "obtenerDetalleTransferencia",
+        "parameters": [
+          { "name": "idTransaccion", "in": "path", "required": true, "schema": { "type": "string", "example": "TRX-20260217-0001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Detalle de la transferencia",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransferenciaDetalle" } } }
+          },
+          "404": {
+            "description": "Transferencia no encontrada",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/transferencias/{idTransaccion}/comprobante": {
+      "get": {
+        "tags": ["Transferencias"],
+        "summary": "Obtiene un comprobante JSON de la transferencia",
+        "description": "Retorna un comprobante con código de autorización y estado de la transferencia.",
+        "operationId": "obtenerComprobanteTransferencia",
+        "parameters": [
+          { "name": "idTransaccion", "in": "path", "required": true, "schema": { "type": "string", "example": "TRX-20260217-0001" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comprobante de la transferencia",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ComprobanteResponse" },
+                "example": {
+                  "idTransaccion": "TRX-20260217-0001",
+                  "codigoAutorizacion": "AUT-998877",
+                  "fecha": "2026-02-17T16:30:00Z",
+                  "estado": "COMPLETADA",
+                  "mensaje": "Transferencia procesada correctamente"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transferencia no encontrada",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          },
+          "401": {
+            "description": "No autorizado o token inválido",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/transferencias/sospechosas": {
+      "get": {
+        "tags": ["Administración"],
+        "summary": "Lista operaciones marcadas como sospechosas",
+        "description": "Permite a usuarios con rol ADMIN_BANCO o AUDITOR consultar transferencias marcadas para revisión.",
+        "operationId": "listarTransferenciasSospechosas",
+        "parameters": [
+          { "name": "fechaDesde", "in": "query", "required": false, "schema": { "type": "string", "format": "date", "example": "2026-01-01" } },
+          { "name": "fechaHasta", "in": "query", "required": false, "schema": { "type": "string", "format": "date", "example": "2026-02-17" } },
+          { "name": "estadoRevision", "in": "query", "required": false, "schema": { "type": "string", "example": "EN_REVISION" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de transferencias sospechosas",
+            "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/TransferenciaDetalle" } } } }
+          },
+          "401": { "description": "No autorizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Acceso denegado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/admin/transferencias/{idTransaccion}/revision": {
+      "patch": {
+        "tags": ["Administración"],
+        "summary": "Aprueba o rechaza una transferencia sospechosa",
+        "description": "Permite a un usuario con rol ADMIN_BANCO aprobar o rechazar una transferencia marcada para revisión.",
+        "operationId": "revisarTransferenciaSospechosa",
+        "parameters": [
+          { "name": "idTransaccion", "in": "path", "required": true, "schema": { "type": "string", "example": "TRX-20260216-0002" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RevisionTransferenciaRequest" },
+              "example": { "accion": "APROBAR", "comentario": "Validación manual completada" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transferencia revisada correctamente",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TransferenciaDetalle" } } }
+          },
+          "401": { "description": "No autorizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Acceso denegado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "404": { "description": "Transferencia no encontrada", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/api/auditoria/eventos": {
+      "get": {
+        "tags": ["Auditoría"],
+        "summary": "Consulta eventos de auditoría del sistema",
+        "description": "Permite a usuarios con rol AUDITOR consultar eventos de auditoría con filtros y paginación.",
+        "operationId": "consultarEventosAuditoria",
+        "parameters": [
+          { "name": "usuario", "in": "query", "required": false, "schema": { "type": "string", "example": "cliente01" } },
+          { "name": "tipoEvento", "in": "query", "required": false, "schema": { "type": "string", "example": "TRANSFERENCIA" } },
+          { "name": "fechaDesde", "in": "query", "required": false, "schema": { "type": "string", "format": "date-time", "example": "2026-01-01T00:00:00Z" } },
+          { "name": "fechaHasta", "in": "query", "required": false, "schema": { "type": "string", "format": "date-time", "example": "2026-02-17T23:59:59Z" } },
+          { "name": "pagina", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "name": "tamanio", "in": "query", "required": false, "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de eventos de auditoría",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/EventoAuditoria" } },
+                    "paginacion": { "$ref": "#/components/schemas/MetadataPaginacion" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "description": "No autorizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "403": { "description": "Acceso denegado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string", "example": "access-xxxxx-1001" },
+          "tokenType": { "type": "string", "example": "Bearer" },
+          "expiresIn": { "type": "integer", "example": 900 },
+          "refreshToken": { "type": "string", "example": "refresh-xxxxx-1001" },
+          "refreshExpiresIn": { "type": "integer", "example": 604800 },
+          "scope": { "type": "string", "example": "transferencias cuentas perfil" }
+        }
+      },
+      "RefreshTokenRequest": {
+        "required": ["refreshToken"],
+        "type": "object",
+        "properties": {
+          "refreshToken": { "type": "string", "example": "refresh-xxxxx-1001" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "codigo": { "type": "string", "example": "ERROR_INTERNO" },
+          "mensaje": { "type": "string", "example": "Ha ocurrido un error" },
+          "detalles": { "type": "object", "nullable": true },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "path": { "type": "string" },
+          "requestId": { "type": "string" }
+        }
+      },
+      "ValidationErrorResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/ErrorResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "codigo": { "type": "string", "example": "ERROR_VALIDACION" },
+              "detalles": { "type": "object", "example": { "monto": ["El monto debe ser mayor que 0"] } }
+            }
+          }
+        ]
+      },
+      "Cliente": {
+        "type": "object",
+        "properties": {
+          "idCliente": { "type": "string", "example": "CLI-1001" },
+          "nombreCompleto": { "type": "string", "example": "Juan Pérez" },
+          "documentoIdentidad": { "type": "string", "example": "00112345678" },
+          "correo": { "type": "string", "format": "email", "example": "juan.perez@correo.com" },
+          "telefono": { "type": "string", "example": "8095551234" },
+          "estado": { "type": "string", "enum": ["ACTIVO", "INACTIVO"], "example": "ACTIVO" },
+          "rol": { "type": "string", "enum": ["CLIENTE", "ADMIN_BANCO", "AUDITOR"], "example": "CLIENTE" }
+        }
+      },
+      "Cuenta": {
+        "type": "object",
+        "properties": {
+          "numeroCuenta": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-2345-6789-0001" },
+          "tipoCuenta": { "type": "string", "enum": ["AHORRO", "CORRIENTE"], "example": "AHORRO" },
+          "moneda": { "type": "string", "enum": ["DOP", "USD", "EUR"], "example": "DOP" },
+          "saldoDisponible": { "type": "number", "format": "double", "example": 50250.75 },
+          "saldoContable": { "type": "number", "format": "double", "example": 51000.75 },
+          "estado": { "type": "string", "enum": ["ACTIVA", "INACTIVA"], "example": "ACTIVA" },
+          "titular": { "$ref": "#/components/schemas/Cuenta_titular" }
+        }
+      },
+      "Cuenta_titular": {
+        "type": "object",
+        "properties": {
+          "idCliente": { "type": "string", "example": "CLI-1001" },
+          "nombreCompleto": { "type": "string", "example": "Juan Pérez" }
+        }
+      },
+      "Beneficiario": {
+        "type": "object",
+        "properties": {
+          "idBeneficiario": { "type": "string", "example": "BEN-001" },
+          "alias": { "type": "string", "example": "Madre" },
+          "nombreBeneficiario": { "type": "string", "example": "María Pérez" },
+          "numeroCuenta": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-8888-7777-0002" },
+          "banco": { "type": "string", "example": "Banco Demo" },
+          "documentoIdentidad": { "type": "string", "example": "00198765432" }
+        }
+      },
+      "BeneficiarioRequest": {
+        "required": ["alias", "nombreBeneficiario", "numeroCuenta", "banco", "documentoIdentidad"],
+        "type": "object",
+        "properties": {
+          "alias": { "type": "string", "example": "Madre" },
+          "nombreBeneficiario": { "type": "string", "example": "María Pérez" },
+          "numeroCuenta": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-8888-7777-0002" },
+          "banco": { "type": "string", "example": "Banco Demo" },
+          "documentoIdentidad": { "type": "string", "example": "00198765432" }
+        }
+      },
+      "beneficiarios_idBeneficiario_body": {
+        "type": "object",
+        "properties": {
+          "alias": { "type": "string", "example": "Madre Actualizada" },
+          "nombreBeneficiario": { "type": "string", "example": "María Pérez Actualizada" },
+          "numeroCuenta": { "type": "string", "minLength": 10, "maxLength": 25 },
+          "banco": { "type": "string" },
+          "documentoIdentidad": { "type": "string" }
+        }
+      },
+      "TransferenciaRequest": {
+        "required": ["cuentaOrigen", "cuentaDestino", "monto", "moneda", "concepto"],
+        "type": "object",
+        "properties": {
+          "cuentaOrigen": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-2345-6789-0001" },
+          "cuentaDestino": { "type": "string", "minLength": 10, "maxLength": 25, "example": "1001-9876-5432-1000" },
+          "monto": { "type": "number", "format": "double", "minimum": 0.01, "example": 5000 },
+          "moneda": { "type": "string", "enum": ["DOP", "USD", "EUR"], "example": "DOP" },
+          "concepto": { "type": "string", "maxLength": 140, "example": "Pago factura" },
+          "idBeneficiario": { "type": "string", "nullable": true, "example": "BEN-001" }
+        }
+      },
+      "TransferenciaResponse": {
+        "type": "object",
+        "properties": {
+          "idTransaccion": { "type": "string", "example": "TRX-20260217-0001" },
+          "estado": { "type": "string", "enum": ["COMPLETADA", "EN_REVISION", "RECHAZADA"], "example": "COMPLETADA" },
+          "fecha": { "type": "string", "format": "date-time" },
+          "monto": { "type": "number", "format": "double", "example": 5000 },
+          "moneda": { "type": "string", "enum": ["DOP", "USD", "EUR"], "example": "DOP" },
+          "concepto": { "type": "string", "example": "Pago factura" },
+          "cuentaOrigen": { "type": "string", "example": "1001-2345-6789-0001" },
+          "cuentaDestino": { "type": "string", "example": "1001-9876-5432-1000" }
+        }
+      },
+      "TransferenciaDetalle": {
+        "allOf": [
+          { "$ref": "#/components/schemas/TransferenciaResponse" },
+          {
+            "type": "object",
+            "properties": {
+              "idBeneficiario": { "type": "string", "nullable": true, "example": "BEN-001" },
+              "mensaje": { "type": "string", "example": "Transferencia procesada correctamente" }
+            }
+          }
+        ]
+      },
+      "TransferenciaPaginada": {
+        "type": "object",
+        "properties": {
+          "data": { "type": "array", "items": { "$ref": "#/components/schemas/TransferenciaResponse" } },
+          "paginacion": { "$ref": "#/components/schemas/MetadataPaginacion" }
+        }
+      },
+      "ComprobanteResponse": {
+        "type": "object",
+        "properties": {
+          "idTransaccion": { "type": "string", "example": "TRX-20260217-0001" },
+          "codigoAutorizacion": { "type": "string", "example": "AUT-998877" },
+          "fecha": { "type": "string", "format": "date-time" },
+          "estado": { "type": "string", "example": "COMPLETADA" },
+          "mensaje": { "type": "string", "example": "Transferencia procesada correctamente" }
+        }
+      },
+      "EventoAuditoria": {
+        "type": "object",
+        "properties": {
+          "idEvento": { "type": "string", "example": "EVT-0001" },
+          "usuario": { "type": "string", "example": "cliente01" },
+          "tipoEvento": { "type": "string", "example": "LOGIN" },
+          "descripcion": { "type": "string", "example": "Inicio de sesión exitoso" },
+          "fecha": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RevisionTransferenciaRequest": {
+        "required": ["accion"],
+        "type": "object",
+        "properties": {
+          "accion": { "type": "string", "enum": ["APROBAR", "RECHAZAR"], "example": "APROBAR" },
+          "comentario": { "type": "string", "nullable": true, "example": "Validación manual completada" }
+        }
+      },
+      "MetadataPaginacion": {
+        "type": "object",
+        "properties": {
+          "pagina": { "type": "integer", "example": 1 },
+          "tamanio": { "type": "integer", "example": 10 },
+          "totalRegistros": { "type": "integer", "example": 25 },
+          "totalPaginas": { "type": "integer", "example": 3 }
+        }
+      },
+      "auth_token_body": {
+        "required": ["username", "password", "grantType"],
+        "type": "object",
+        "properties": {
+          "username": { "type": "string", "example": "cliente01" },
+          "password": { "type": "string", "example": "ClaveSegura123!" },
+          "grantType": { "type": "string", "enum": ["password"], "example": "password" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Token"
+      }
+    }
+  }
+}

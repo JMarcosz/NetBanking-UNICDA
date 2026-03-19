@@ -1,0 +1,29 @@
+[
+  {
+    "idBeneficiario": "BEN-001",
+    "idCliente": "CLI-1001",
+    "alias": "Madre",
+    "nombreBeneficiario": "María Pérez",
+    "numeroCuenta": "1001-8888-7777-0002",
+    "banco": "Banco Demo",
+    "documentoIdentidad": "00198765432"
+  },
+  {
+    "idBeneficiario": "BEN-002",
+    "idCliente": "CLI-1001",
+    "alias": "Hermano",
+    "nombreBeneficiario": "Carlos Pérez",
+    "numeroCuenta": "1001-7777-6666-0003",
+    "banco": "Banco Demo",
+    "documentoIdentidad": "00187654321"
+  },
+  {
+    "idBeneficiario": "BEN-003",
+    "idCliente": "CLI-1002",
+    "alias": "Amigo",
+    "nombreBeneficiario": "Pedro Martínez",
+    "numeroCuenta": "1001-5555-4444-0004",
+    "banco": "Banco Nacional",
+    "documentoIdentidad": "00176543210"
+  }
+]

@@ -1,0 +1,1461 @@
+openapi: 3.0.3
+info:
+  title: API Bancaria de Transferencias
+  description: "API REST para operaciones bancarias de transferencias, diseñada para fines académicos de Ingeniería de Servicios Web."
+  version: 1.0.0
+servers:
+- url: https://api.bancord.local/v1
+security:
+- bearerAuth: []
+- oauth2: []
+paths:
+  /api/auth/token:
+    post:
+      tags:
+      - Autenticación
+      summary: Autentica usuario y genera access token y refresh token
+      description: |
+        Permite al usuario autenticarse con sus credenciales y obtener un access token JWT válido por 15 minutos y un refresh token válido por 7 días.
+      operationId: autenticarUsuario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/auth_token_body"
+        required: true
+      responses:
+        "200":
+          description: Tokens generados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              examples:
+                ejemplo:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    tokenType: Bearer
+                    expiresIn: 900
+                    refreshToken: refresh-token-123456
+                    refreshExpiresIn: 604800
+                    scope: transferencias cuentas perfil
+        "401":
+          description: Credenciales inválidas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                credencialesInvalidas:
+                  value:
+                    codigo: CREDENCIALES_INVALIDAS
+                    mensaje: Usuario o contraseña incorrectos
+                    timestamp: 2026-02-17T16:00:00Z
+                    path: /api/auth/token
+                    requestId: req-0001
+      security: []
+  /api/auth/refresh:
+    post:
+      tags:
+      - Autenticación
+      summary: Renueva el access token usando refresh token
+      description: |
+        Permite obtener un nuevo access token válido usando un refresh token válido.
+      operationId: renovarAccessToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            examples:
+              ejemplo:
+                value:
+                  refreshToken: refresh-token-123456
+        required: true
+      responses:
+        "200":
+          description: Nuevo access token generado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              examples:
+                ejemplo:
+                  value:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    tokenType: Bearer
+                    expiresIn: 900
+                    refreshToken: refresh-token-123456
+                    refreshExpiresIn: 604800
+                    scope: transferencias cuentas perfil
+        "401":
+          description: Refresh token expirado o inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                tokenExpirado:
+                  value:
+                    codigo: TOKEN_EXPIRADO
+                    mensaje: El refresh token ha expirado o es inválido
+                    timestamp: 2026-02-17T16:10:00Z
+                    path: /api/auth/refresh
+                    requestId: req-0002
+      security: []
+  /api/auth/logout:
+    post:
+      tags:
+      - Autenticación
+      summary: Invalida refresh token y cierra sesión
+      description: |
+        Cierra la sesión del usuario invalidando el refresh token proporcionado.
+      operationId: cerrarSesion
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            examples:
+              ejemplo:
+                value:
+                  refreshToken: refresh-token-123456
+        required: true
+      responses:
+        "204":
+          description: Sesión cerrada y refresh token invalidado
+      security:
+      - bearerAuth: []
+  /api/clientes/me:
+    get:
+      tags:
+      - Clientes
+      summary: Obtiene el perfil del usuario autenticado
+      description: |
+        Retorna la información del perfil del cliente autenticado. Requiere rol CLIENTE, ADMIN_BANCO o AUDITOR.
+      operationId: obtenerPerfilUsuario
+      responses:
+        "200":
+          description: Perfil del usuario autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cliente"
+              examples:
+                ejemplo:
+                  value:
+                    idCliente: CLI-1001
+                    nombreCompleto: Juan Pérez
+                    documentoIdentidad: "00112345678"
+                    correo: juan.perez@correo.com
+                    telefono: 8095551234
+                    estado: ACTIVO
+                    rol: CLIENTE
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Acceso denegado por rol insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/cuentas:
+    get:
+      tags:
+      - Cuentas
+      summary: Lista las cuentas del cliente autenticado
+      description: |
+        Retorna un arreglo con las cuentas asociadas al cliente autenticado. Se pueden filtrar por estado y moneda.
+      operationId: listarCuentasCliente
+      parameters:
+      - name: estado
+        in: query
+        description: "Estado de la cuenta (ej. ACTIVA, INACTIVA)"
+        required: false
+        schema:
+          type: string
+          example: ACTIVA
+      - name: moneda
+        in: query
+        description: Moneda de la cuenta
+        required: false
+        schema:
+          type: string
+          example: DOP
+          enum:
+          - DOP
+          - USD
+          - EUR
+      responses:
+        "200":
+          description: Lista de cuentas del cliente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Cuenta"
+              examples:
+                ejemplo:
+                  value:
+                  - numeroCuenta: 1001-2345-6789-0001
+                    tipoCuenta: AHORRO
+                    moneda: DOP
+                    saldoDisponible: 50250.75
+                    saldoContable: 51000.75
+                    estado: ACTIVA
+                    titular:
+                      idCliente: CLI-1001
+                      nombreCompleto: Juan Pérez
+                  - numeroCuenta: 1001-2345-6789-0002
+                    tipoCuenta: CORRIENTE
+                    moneda: USD
+                    saldoDisponible: 1500
+                    saldoContable: 1500
+                    estado: ACTIVA
+                    titular:
+                      idCliente: CLI-1001
+                      nombreCompleto: Juan Pérez
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/cuentas/{numeroCuenta}:
+    get:
+      tags:
+      - Cuentas
+      summary: Consulta detalle y saldo de una cuenta específica
+      description: |
+        Retorna el detalle completo y saldo de la cuenta indicada por número. Retorna 404 si la cuenta no existe.
+      operationId: obtenerDetalleCuenta
+      parameters:
+      - name: numeroCuenta
+        in: path
+        description: Número de cuenta (10 a 25 caracteres)
+        required: true
+        schema:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-2345-6789-0001
+      responses:
+        "200":
+          description: Detalle de la cuenta
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cuenta"
+              examples:
+                ejemplo:
+                  value:
+                    numeroCuenta: 1001-2345-6789-0001
+                    tipoCuenta: AHORRO
+                    moneda: DOP
+                    saldoDisponible: 50250.75
+                    saldoContable: 51000.75
+                    estado: ACTIVA
+                    titular:
+                      idCliente: CLI-1001
+                      nombreCompleto: Juan Pérez
+        "404":
+          description: Cuenta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                cuentaNoEncontrada:
+                  value:
+                    codigo: CUENTA_NO_ENCONTRADA
+                    mensaje: La cuenta solicitada no existe
+                    timestamp: 2026-02-17T16:20:00Z
+                    path: /api/cuentas/1001-2345-6789-9999
+                    requestId: req-0003
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/beneficiarios:
+    get:
+      tags:
+      - Beneficiarios
+      summary: Lista beneficiarios asociados al cliente
+      description: |
+        Retorna un arreglo con los beneficiarios registrados por el cliente autenticado.
+      operationId: listarBeneficiarios
+      responses:
+        "200":
+          description: Lista de beneficiarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Beneficiario"
+              examples:
+                ejemplo:
+                  value:
+                  - idBeneficiario: BEN-001
+                    alias: Madre
+                    nombreBeneficiario: María Pérez
+                    numeroCuenta: 1001-8888-7777-0002
+                    banco: Banco Demo
+                    documentoIdentidad: "00198765432"
+                  - idBeneficiario: BEN-002
+                    alias: Hermano
+                    nombreBeneficiario: Carlos Pérez
+                    numeroCuenta: 1001-7777-6666-0003
+                    banco: Banco Demo
+                    documentoIdentidad: "00187654321"
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Beneficiarios
+      summary: Registra un nuevo beneficiario
+      description: |
+        Permite al cliente registrar un nuevo beneficiario para transferencias.
+      operationId: crearBeneficiario
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BeneficiarioRequest"
+            examples:
+              ejemplo:
+                value:
+                  alias: Madre
+                  nombreBeneficiario: María Pérez
+                  numeroCuenta: 1001-8888-7777-0002
+                  banco: Banco Demo
+                  documentoIdentidad: "00198765432"
+        required: true
+      responses:
+        "201":
+          description: Beneficiario creado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Beneficiario"
+              examples:
+                ejemplo:
+                  value:
+                    idBeneficiario: BEN-003
+                    alias: Madre
+                    nombreBeneficiario: María Pérez
+                    numeroCuenta: 1001-8888-7777-0002
+                    banco: Banco Demo
+                    documentoIdentidad: "00198765432"
+        "409":
+          description: Beneficiario ya existe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiarioExistente:
+                  value:
+                    codigo: ERROR_VALIDACION
+                    mensaje: El beneficiario ya está registrado
+                    timestamp: 2026-02-17T16:25:00Z
+                    path: /api/beneficiarios
+                    requestId: req-0004
+        "400":
+          description: Error de validación en datos de entrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/beneficiarios/{idBeneficiario}:
+    put:
+      tags:
+      - Beneficiarios
+      summary: Actualiza alias o datos permitidos del beneficiario
+      description: |
+        Permite modificar el alias o datos permitidos de un beneficiario existente.
+      operationId: actualizarBeneficiario
+      parameters:
+      - name: idBeneficiario
+        in: path
+        required: true
+        schema:
+          type: string
+          example: BEN-001
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/beneficiarios_idBeneficiario_body"
+            examples:
+              ejemplo:
+                value:
+                  alias: Madre Actualizada
+        required: true
+      responses:
+        "200":
+          description: Beneficiario actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Beneficiario"
+              examples:
+                ejemplo:
+                  value:
+                    idBeneficiario: BEN-001
+                    alias: Madre Actualizada
+                    nombreBeneficiario: María Pérez
+                    numeroCuenta: 1001-8888-7777-0002
+                    banco: Banco Demo
+                    documentoIdentidad: "00198765432"
+        "404":
+          description: Beneficiario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiarioNoEncontrado:
+                  value:
+                    codigo: BENEFICIARIO_NO_ENCONTRADO
+                    mensaje: No se encontró el beneficiario especificado
+                    timestamp: 2026-02-17T16:27:00Z
+                    path: /api/beneficiarios/BEN-999
+                    requestId: req-0005
+        "400":
+          description: Error de validación en datos de entrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+      security:
+      - bearerAuth: []
+    delete:
+      tags:
+      - Beneficiarios
+      summary: Elimina un beneficiario
+      description: |
+        Permite eliminar un beneficiario registrado.
+      operationId: eliminarBeneficiario
+      parameters:
+      - name: idBeneficiario
+        in: path
+        required: true
+        schema:
+          type: string
+          example: BEN-001
+      responses:
+        "204":
+          description: Beneficiario eliminado correctamente
+        "404":
+          description: Beneficiario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                beneficiarioNoEncontrado:
+                  value:
+                    codigo: BENEFICIARIO_NO_ENCONTRADO
+                    mensaje: No se encontró el beneficiario especificado
+                    timestamp: 2026-02-17T16:28:00Z
+                    path: /api/beneficiarios/BEN-999
+                    requestId: req-0006
+      security:
+      - bearerAuth: []
+  /api/transferencias:
+    get:
+      tags:
+      - Transferencias
+      summary: Consulta histórico de transferencias del cliente
+      description: |
+        Permite consultar el historial de transferencias realizadas por el cliente, con filtros y paginación.
+      operationId: listarTransferencias
+      parameters:
+      - name: fechaDesde
+        in: query
+        description: Fecha inicial para filtrar (formato date)
+        required: false
+        schema:
+          type: string
+          format: date
+          example: 2026-01-01
+      - name: fechaHasta
+        in: query
+        description: Fecha final para filtrar (formato date)
+        required: false
+        schema:
+          type: string
+          format: date
+          example: 2026-02-17
+      - name: estado
+        in: query
+        description: "Estado de la transferencia (COMPLETADA, EN_REVISION, RECHAZADA)"
+        required: false
+        schema:
+          type: string
+          example: COMPLETADA
+      - name: pagina
+        in: query
+        description: Número de página (paginación)
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+          default: 1
+      - name: tamanio
+        in: query
+        description: Tamaño de página (paginación)
+        required: false
+        schema:
+          maximum: 100
+          minimum: 1
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Lista paginada de transferencias
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferenciaPaginada"
+              examples:
+                ejemplo:
+                  value:
+                    data:
+                    - idTransaccion: TRX-20260217-0001
+                      estado: COMPLETADA
+                      fecha: 2026-02-17T16:30:00Z
+                      monto: 5000
+                      moneda: DOP
+                      concepto: Pago factura
+                      cuentaOrigen: 1001-2345-6789-0001
+                      cuentaDestino: 1001-9876-5432-1000
+                    - idTransaccion: TRX-20260216-0002
+                      estado: EN_REVISION
+                      fecha: 2026-02-16T14:00:00Z
+                      monto: 15000
+                      moneda: DOP
+                      concepto: Pago servicios
+                      cuentaOrigen: 1001-2345-6789-0001
+                      cuentaDestino: 1001-9876-5432-1001
+                    paginacion:
+                      pagina: 1
+                      tamanio: 10
+                      totalRegistros: 25
+                      totalPaginas: 3
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+    post:
+      tags:
+      - Transferencias
+      summary: Crea una transferencia bancaria entre cuentas
+      description: |
+        Permite crear una transferencia entre cuentas activas, validando saldo, límite diario y detectando operaciones sospechosas.
+      operationId: crearTransferencia
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferenciaRequest"
+            examples:
+              ejemplo:
+                value:
+                  cuentaOrigen: 1001-2345-6789-0001
+                  cuentaDestino: 1001-9876-5432-1000
+                  monto: 5000
+                  moneda: DOP
+                  concepto: Pago factura
+                  idBeneficiario: BEN-001
+        required: true
+      responses:
+        "201":
+          description: Transferencia creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferenciaResponse"
+              examples:
+                ejemplo:
+                  value:
+                    idTransaccion: TRX-20260217-0001
+                    estado: COMPLETADA
+                    fecha: 2026-02-17T16:30:00Z
+                    monto: 5000
+                    moneda: DOP
+                    concepto: Pago factura
+                    cuentaOrigen: 1001-2345-6789-0001
+                    cuentaDestino: 1001-9876-5432-1000
+        "400":
+          description: Solicitud inválida o error de validación
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationErrorResponse"
+        "403":
+          description: Acceso denegado o validación de negocio fallida
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                saldoInsuficiente:
+                  value:
+                    codigo: SALDO_INSUFICIENTE
+                    mensaje: La cuenta no tiene saldo suficiente para realizar la operación
+                    detalles:
+                      saldoDisponible: 1250
+                      montoSolicitado: 5000
+                      montoFaltante: 3750
+                    timestamp: 2026-02-17T16:35:00Z
+                    path: /api/transferencias
+                    requestId: req-123456
+                limiteDiarioExcedido:
+                  value:
+                    codigo: LIMITE_DIARIO_EXCEDIDO
+                    mensaje: "Se ha excedido el límite diario de RD$200,000 para transferencias"
+                    detalles:
+                      limiteDiario: 200000
+                      montoAcumulado: 195000
+                      montoSolicitado: 10000
+                    timestamp: 2026-02-17T16:36:00Z
+                    path: /api/transferencias
+                    requestId: req-123457
+                cuentaInactiva:
+                  value:
+                    codigo: CUENTA_INACTIVA
+                    mensaje: La cuenta origen o destino está inactiva
+                    timestamp: 2026-02-17T16:37:00Z
+                    path: /api/transferencias
+                    requestId: req-123458
+        "422":
+          description: Operación no procesable (ej. operación sospechosa)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                operacionSospechosa:
+                  value:
+                    codigo: OPERACION_SOSPECHOSA
+                    mensaje: La transferencia ha sido marcada para revisión por sospecha
+                    timestamp: 2026-02-17T16:38:00Z
+                    path: /api/transferencias
+                    requestId: req-123459
+        "500":
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/transferencias/{idTransaccion}:
+    get:
+      tags:
+      - Transferencias
+      summary: Obtiene el detalle de una transferencia
+      description: |
+        Retorna el detalle completo de una transferencia específica. Retorna 404 si no existe.
+      operationId: obtenerDetalleTransferencia
+      parameters:
+      - name: idTransaccion
+        in: path
+        required: true
+        schema:
+          type: string
+          example: TRX-20260217-0001
+      responses:
+        "200":
+          description: Detalle de la transferencia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferenciaDetalle"
+              examples:
+                ejemplo:
+                  value:
+                    idTransaccion: TRX-20260217-0001
+                    estado: COMPLETADA
+                    fecha: 2026-02-17T16:30:00Z
+                    monto: 5000
+                    moneda: DOP
+                    concepto: Pago factura
+                    cuentaOrigen: 1001-2345-6789-0001
+                    cuentaDestino: 1001-9876-5432-1000
+                    idBeneficiario: BEN-001
+                    mensaje: Transferencia procesada correctamente
+        "404":
+          description: Transferencia no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                transferenciaNoEncontrada:
+                  value:
+                    codigo: TRANSFERENCIA_NO_ENCONTRADA
+                    mensaje: No se encontró la transferencia especificada
+                    timestamp: 2026-02-17T16:40:00Z
+                    path: /api/transferencias/TRX-999999
+                    requestId: req-0007
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/transferencias/{idTransaccion}/comprobante:
+    get:
+      tags:
+      - Transferencias
+      summary: Obtiene un comprobante JSON de la transferencia
+      description: |
+        Retorna un comprobante con código de autorización y estado de la transferencia.
+      operationId: obtenerComprobanteTransferencia
+      parameters:
+      - name: idTransaccion
+        in: path
+        required: true
+        schema:
+          type: string
+          example: TRX-20260217-0001
+      responses:
+        "200":
+          description: Comprobante de la transferencia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200"
+              examples:
+                ejemplo:
+                  value:
+                    idTransaccion: TRX-20260217-0001
+                    codigoAutorizacion: AUT-998877
+                    fecha: 2026-02-17T16:30:00Z
+                    estado: COMPLETADA
+                    mensaje: Transferencia procesada correctamente
+        "404":
+          description: Transferencia no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/admin/transferencias/sospechosas:
+    get:
+      tags:
+      - Administración
+      summary: Lista operaciones marcadas como sospechosas
+      description: |
+        Permite a usuarios con rol ADMIN_BANCO o AUDITOR consultar transferencias marcadas para revisión.
+      operationId: listarTransferenciasSospechosas
+      parameters:
+      - name: fechaDesde
+        in: query
+        description: Fecha inicial para filtrar (formato date)
+        required: false
+        schema:
+          type: string
+          format: date
+          example: 2026-01-01
+      - name: fechaHasta
+        in: query
+        description: Fecha final para filtrar (formato date)
+        required: false
+        schema:
+          type: string
+          format: date
+          example: 2026-02-17
+      - name: estadoRevision
+        in: query
+        description: "Estado de revisión (EN_REVISION, APROBADA, RECHAZADA)"
+        required: false
+        schema:
+          type: string
+          example: EN_REVISION
+      responses:
+        "200":
+          description: Lista de transferencias sospechosas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TransferenciaDetalle"
+              examples:
+                ejemplo:
+                  value:
+                  - idTransaccion: TRX-20260216-0002
+                    estado: EN_REVISION
+                    fecha: 2026-02-16T14:00:00Z
+                    monto: 15000
+                    moneda: DOP
+                    concepto: Pago servicios
+                    cuentaOrigen: 1001-2345-6789-0001
+                    cuentaDestino: 1001-9876-5432-1001
+                    idBeneficiario: BEN-002
+                    mensaje: Transferencia en revisión por sospecha
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Acceso denegado por rol insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/admin/transferencias/{idTransaccion}/revision:
+    patch:
+      tags:
+      - Administración
+      summary: Aprueba o rechaza una transferencia sospechosa
+      description: |
+        Permite a un usuario con rol ADMIN_BANCO aprobar o rechazar una transferencia marcada para revisión.
+      operationId: revisarTransferenciaSospechosa
+      parameters:
+      - name: idTransaccion
+        in: path
+        required: true
+        schema:
+          type: string
+          example: TRX-20260216-0002
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevisionTransferenciaRequest"
+            examples:
+              ejemplo:
+                value:
+                  accion: APROBAR
+                  comentario: Validación manual completada
+        required: true
+      responses:
+        "200":
+          description: Transferencia revisada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferenciaDetalle"
+              examples:
+                ejemplo:
+                  value:
+                    idTransaccion: TRX-20260216-0002
+                    estado: APROBADA
+                    fecha: 2026-02-16T14:00:00Z
+                    monto: 15000
+                    moneda: DOP
+                    concepto: Pago servicios
+                    cuentaOrigen: 1001-2345-6789-0001
+                    cuentaDestino: 1001-9876-5432-1001
+                    idBeneficiario: BEN-002
+                    mensaje: Transferencia aprobada tras revisión manual
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Acceso denegado por rol insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transferencia no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+  /api/auditoria/eventos:
+    get:
+      tags:
+      - Auditoría
+      summary: Consulta eventos de auditoría del sistema
+      description: |
+        Permite a usuarios con rol AUDITOR consultar eventos de auditoría con filtros y paginación.
+      operationId: consultarEventosAuditoria
+      parameters:
+      - name: usuario
+        in: query
+        description: Usuario asociado al evento
+        required: false
+        schema:
+          type: string
+          example: cliente01
+      - name: tipoEvento
+        in: query
+        description: "Tipo de evento (LOGIN, TRANSFERENCIA, ERROR, etc.)"
+        required: false
+        schema:
+          type: string
+          example: TRANSFERENCIA
+      - name: fechaDesde
+        in: query
+        description: Fecha inicial para filtrar (formato date-time)
+        required: false
+        schema:
+          type: string
+          format: date-time
+          example: 2026-01-01T00:00:00Z
+      - name: fechaHasta
+        in: query
+        description: Fecha final para filtrar (formato date-time)
+        required: false
+        schema:
+          type: string
+          format: date-time
+          example: 2026-02-17T23:59:59Z
+      - name: pagina
+        in: query
+        description: Número de página (paginación)
+        required: false
+        schema:
+          minimum: 1
+          type: integer
+          default: 1
+      - name: tamanio
+        in: query
+        description: Tamaño de página (paginación)
+        required: false
+        schema:
+          maximum: 100
+          minimum: 1
+          type: integer
+          default: 10
+      responses:
+        "200":
+          description: Lista paginada de eventos de auditoría
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/inline_response_200_1"
+              examples:
+                ejemplo:
+                  value:
+                    data:
+                    - idEvento: EVT-0001
+                      usuario: cliente01
+                      tipoEvento: LOGIN
+                      descripcion: Inicio de sesión exitoso
+                      fecha: 2026-02-17T15:00:00Z
+                    - idEvento: EVT-0002
+                      usuario: cliente01
+                      tipoEvento: TRANSFERENCIA
+                      descripcion: "Transferencia realizada por RD$5,000.00"
+                      fecha: 2026-02-17T16:30:00Z
+                    paginacion:
+                      pagina: 1
+                      tamanio: 10
+                      totalRegistros: 2
+                      totalPaginas: 1
+        "401":
+          description: No autorizado o token inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Acceso denegado por rol insuficiente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+      - bearerAuth: []
+components:
+  schemas:
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: Token JWT para autorización Bearer
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        tokenType:
+          type: string
+          example: Bearer
+        expiresIn:
+          type: integer
+          description: Tiempo en segundos para expiración del access token
+          example: 900
+        refreshToken:
+          type: string
+          description: Token para renovar el access token
+          example: refresh-token-123456
+        refreshExpiresIn:
+          type: integer
+          description: Tiempo en segundos para expiración del refresh token
+          example: 604800
+        scope:
+          type: string
+          description: Alcance o permisos otorgados
+          example: transferencias cuentas perfil
+      description: Respuesta con tokens de autenticación
+    RefreshTokenRequest:
+      required:
+      - refreshToken
+      type: object
+      properties:
+        refreshToken:
+          type: string
+          example: refresh-token-123456
+      description: Solicitud para renovar access token usando refresh token
+    ErrorResponse:
+      type: object
+      properties:
+        codigo:
+          type: string
+          description: Código identificador del error
+          example: SALDO_INSUFICIENTE
+        mensaje:
+          type: string
+          description: Mensaje descriptivo del error
+          example: La cuenta no tiene saldo suficiente para realizar la operación
+        detalles:
+          type: object
+          description: Información adicional sobre el error
+          nullable: true
+          example:
+            saldoDisponible: 1250
+            montoSolicitado: 5000
+            montoFaltante: 3750
+        timestamp:
+          type: string
+          description: Fecha y hora del error
+          format: date-time
+          example: 2026-02-17T16:35:00Z
+        path:
+          type: string
+          description: Ruta del endpoint donde ocurrió el error
+          example: /api/transferencias
+        requestId:
+          type: string
+          description: Identificador único de la solicitud para trazabilidad
+          example: req-123456
+      description: Estructura base para respuestas de error
+    ValidationErrorResponse:
+      properties:
+        codigo:
+          type: string
+          example: ERROR_VALIDACION
+        detalles:
+          type: object
+          description: Detalles específicos de los campos con error
+          example:
+            monto:
+            - El monto debe ser mayor que 0
+            numeroCuenta:
+            - La longitud debe estar entre 10 y 25 caracteres
+      description: Respuesta para errores de validación de datos
+      allOf:
+      - $ref: "#/components/schemas/ErrorResponse"
+    Cliente:
+      type: object
+      properties:
+        idCliente:
+          type: string
+          example: CLI-1001
+        nombreCompleto:
+          type: string
+          example: Juan Pérez
+        documentoIdentidad:
+          type: string
+          example: "00112345678"
+        correo:
+          type: string
+          format: email
+          example: juan.perez@correo.com
+        telefono:
+          type: string
+          example: "8095551234"
+        estado:
+          type: string
+          example: ACTIVO
+          enum:
+          - ACTIVO
+          - INACTIVO
+        rol:
+          type: string
+          example: CLIENTE
+          enum:
+          - CLIENTE
+          - ADMIN_BANCO
+          - AUDITOR
+      description: Información del perfil de un cliente
+    Cuenta:
+      type: object
+      properties:
+        numeroCuenta:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-2345-6789-0001
+        tipoCuenta:
+          type: string
+          example: AHORRO
+          enum:
+          - AHORRO
+          - CORRIENTE
+        moneda:
+          type: string
+          example: DOP
+          enum:
+          - DOP
+          - USD
+          - EUR
+        saldoDisponible:
+          type: number
+          format: double
+          example: 50250.75
+        saldoContable:
+          type: number
+          format: double
+          example: 51000.75
+        estado:
+          type: string
+          example: ACTIVA
+          enum:
+          - ACTIVA
+          - INACTIVA
+        titular:
+          $ref: "#/components/schemas/Cuenta_titular"
+      description: Detalle de una cuenta bancaria
+    Beneficiario:
+      type: object
+      properties:
+        idBeneficiario:
+          type: string
+          example: BEN-001
+        alias:
+          type: string
+          example: Madre
+        nombreBeneficiario:
+          type: string
+          example: María Pérez
+        numeroCuenta:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-8888-7777-0002
+        banco:
+          type: string
+          example: Banco Demo
+        documentoIdentidad:
+          type: string
+          example: "00198765432"
+      description: Información de un beneficiario registrado
+    BeneficiarioRequest:
+      required:
+      - alias
+      - banco
+      - documentoIdentidad
+      - nombreBeneficiario
+      - numeroCuenta
+      type: object
+      properties:
+        alias:
+          type: string
+          example: Madre
+        nombreBeneficiario:
+          type: string
+          example: María Pérez
+        numeroCuenta:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-8888-7777-0002
+        banco:
+          type: string
+          example: Banco Demo
+        documentoIdentidad:
+          type: string
+          example: "00198765432"
+      description: Datos para registrar o actualizar un beneficiario
+    TransferenciaRequest:
+      required:
+      - concepto
+      - cuentaDestino
+      - cuentaOrigen
+      - moneda
+      - monto
+      type: object
+      properties:
+        cuentaOrigen:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-2345-6789-0001
+        cuentaDestino:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-9876-5432-1000
+        monto:
+          minimum: 0.01
+          type: number
+          format: double
+          example: 5000
+        moneda:
+          type: string
+          example: DOP
+          enum:
+          - DOP
+          - USD
+          - EUR
+        concepto:
+          maxLength: 140
+          type: string
+          example: Pago factura
+        idBeneficiario:
+          type: string
+          nullable: true
+          example: BEN-001
+      description: Datos para crear una transferencia bancaria
+    TransferenciaResponse:
+      type: object
+      properties:
+        idTransaccion:
+          type: string
+          example: TRX-20260217-0001
+        estado:
+          type: string
+          example: COMPLETADA
+          enum:
+          - COMPLETADA
+          - EN_REVISION
+          - RECHAZADA
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-02-17T16:30:00Z
+        monto:
+          type: number
+          format: double
+          example: 5000
+        moneda:
+          type: string
+          example: DOP
+          enum:
+          - DOP
+          - USD
+          - EUR
+        concepto:
+          type: string
+          example: Pago factura
+        cuentaOrigen:
+          type: string
+          example: 1001-2345-6789-0001
+        cuentaDestino:
+          type: string
+          example: 1001-9876-5432-1000
+      description: Respuesta con información básica de la transferencia creada
+    TransferenciaDetalle:
+      properties:
+        idBeneficiario:
+          type: string
+          nullable: true
+          example: BEN-001
+        mensaje:
+          type: string
+          example: Transferencia procesada correctamente
+      description: Detalle completo de una transferencia
+      allOf:
+      - $ref: "#/components/schemas/TransferenciaResponse"
+    TransferenciaPaginada:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TransferenciaResponse"
+        paginacion:
+          $ref: "#/components/schemas/MetadataPaginacion"
+      description: Respuesta paginada para listado de transferencias
+    EventoAuditoria:
+      type: object
+      properties:
+        idEvento:
+          type: string
+          example: EVT-0001
+        usuario:
+          type: string
+          example: cliente01
+        tipoEvento:
+          type: string
+          example: LOGIN
+        descripcion:
+          type: string
+          example: Inicio de sesión exitoso
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-02-17T15:00:00Z
+      description: Evento registrado en auditoría
+    RevisionTransferenciaRequest:
+      required:
+      - accion
+      type: object
+      properties:
+        accion:
+          type: string
+          example: APROBAR
+          enum:
+          - APROBAR
+          - RECHAZAR
+        comentario:
+          type: string
+          nullable: true
+          example: Validación manual completada
+      description: Solicitud para aprobar o rechazar una transferencia en revisión
+    MetadataPaginacion:
+      type: object
+      properties:
+        pagina:
+          type: integer
+          example: 1
+        tamanio:
+          type: integer
+          example: 10
+        totalRegistros:
+          type: integer
+          example: 25
+        totalPaginas:
+          type: integer
+          example: 3
+      description: Metadatos para paginación de listas
+    auth_token_body:
+      required:
+      - grantType
+      - password
+      - username
+      type: object
+      properties:
+        username:
+          type: string
+          example: cliente01
+        password:
+          type: string
+          example: ClaveSegura123!
+        grantType:
+          type: string
+          example: password
+          enum:
+          - password
+    beneficiarios_idBeneficiario_body:
+      type: object
+      properties:
+        alias:
+          type: string
+          example: Madre Actualizada
+        nombreBeneficiario:
+          type: string
+          example: María Pérez Actualizada
+        numeroCuenta:
+          maxLength: 25
+          minLength: 10
+          type: string
+          example: 1001-8888-7777-0002
+        banco:
+          type: string
+          example: Banco Demo
+        documentoIdentidad:
+          type: string
+          example: "00198765432"
+    inline_response_200:
+      type: object
+      properties:
+        idTransaccion:
+          type: string
+          example: TRX-20260217-0001
+        codigoAutorizacion:
+          type: string
+          example: AUT-998877
+        fecha:
+          type: string
+          format: date-time
+          example: 2026-02-17T16:30:00Z
+        estado:
+          type: string
+          example: COMPLETADA
+        mensaje:
+          type: string
+          example: Transferencia procesada correctamente
+    inline_response_200_1:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventoAuditoria"
+        paginacion:
+          $ref: "#/components/schemas/MetadataPaginacion"
+    Cuenta_titular:
+      type: object
+      properties:
+        idCliente:
+          type: string
+          example: CLI-1001
+        nombreCompleto:
+          type: string
+          example: Juan Pérez
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    oauth2:
+      type: oauth2
+      flows:
+        password:
+          tokenUrl: https://api.bancord.local/v1/api/auth/token
+          refreshUrl: https://api.bancord.local/v1/api/auth/refresh
+          scopes:
+            transferencias: Acceso a operaciones de transferencias
+            cuentas: Acceso a información de cuentas
+            perfil: Acceso a perfil de usuario
